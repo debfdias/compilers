@@ -7,62 +7,16 @@ else:
 
 # This class defines a complete generic visitor for a parse tree produced by GrammarParser.
 
-'''
-COMO RESGATAR INFORMAÇÕES DA ÁRVORE
-
-Observe o seu Grammar.g4. Cada regra sintática gera uma função com o nome corespondente no Visitor e na ordem em que está na gramática.
-
-Se for utilizar sua gramática do projeto 1, por causa de conflitos com Python, substitua as regras file por fiile e type por tyype. Use prints temporários para ver se está no caminho certo.  
-"make tree" agora desenha a árvore sintática, se quiser vê-la para qualquer input, enquanto "make" roda este visitor sobre o a árvore gerada a partir de Grammar.g4 alimentada pelo input.
-
-Exemplos:
-
-# Obs.: Os exemplos abaixo utilizam nós 'expression', mas servem apra qualquer tipo de nó
-
-self.visitChildren(ctx) # visita todos os filhos do nó atual
-expr = self.visit(ctx.expression())  # visita a subárvore do nó expression e retorna o valor retornado na função "visitRegra"
-
-for i in range(len(ctx.expression())): # para cada expressão que este nó possui...
-    ident = ctx.expression(i) # ...pegue a i-ésima expressão
-
-
-if ctx.FLOAT() != None: # se houver um FLOAT (em vez de INT ou VOID) neste nó (parser)
-    return Type.FLOAT # retorne tipo float
-
-ctx.identifier().getText()  # Obtém o texto contido no nó (neste caso, será obtido o nome do identifier)
-
-token = ctx.identifier(i).IDENTIFIER().getPayload() # Obtém o token referente à uma determinada regra léxica (neste caso, IDENTIFIER)
-token.line      # variável com a linha do token
-token.column    # variável com a coluna do token
-'''
-
-
-# Dica: Retorne Type.INT, Type.FLOAT, etc. Nos nós e subnós das expressões para fazer a checagem de tipos enquanto percorre a expressão.
-class Type:
-    VOID = "void"
-    INT = "int"
-    FLOAT = "float"
-    STRING = "char *"
-
-class GrammarCheckerVisitor(ParseTreeVisitor):
-    ids_defined = {} # Dicionário para armazenar as informações necessárias para cada identifier definido
-    inside_what_function = "" # String que guarda a função atual que o visitor está visitando. Útil para acessar dados da função durante a visitação da árvore sintática da função.
+class GrammarVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#fiile.
     def visitFiile(self, ctx:GrammarParser.FiileContext):
         return self.visitChildren(ctx)
 
 
-     # Visit a parse tree produced by GrammarParser#function_definition.
+    # Visit a parse tree produced by GrammarParser#function_definition.
     def visitFunction_definition(self, ctx:GrammarParser.Function_definitionContext):
-        tyype = ctx.tyype().getText()
-        name = ctx.identifier().getText()
-        params = self.visit(ctx.arguments())
-        self.ids_defined[name] = tyype, params, None
-        self.inside_what_function = name
-        self.visit(ctx.body())
-        self.inside_what_function = None
-        return
+        return self.visitChildren(ctx)
 
 
     # Visit a parse tree produced by GrammarParser#body.
@@ -107,27 +61,11 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
-        for i in range(len(ctx.identifier())):
-            print(i)
-            print(ctx.identifier(i).getText())
-            print(ctx.tyype().getText())
-            self.ids_defined[ctx.identifier(i).getText()] = ctx.tyype().getText()
         return self.visitChildren(ctx)
 
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
     def visitVariable_assignment(self, ctx:GrammarParser.Variable_assignmentContext):
-        if ctx.identifier() != None:
-			#visitar checar se o identifier e verificar se ele já foi definido. Printar um erro se não foi
-            id = ctx.identifier().IDENTIFIER().getText()
-            token = ctx.identifier().IDENTIFIER().getPayload()
-            if id not in self.ids_defined:
-                print("ERROR: undefined variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
-        if ctx.OP != None:
-            print(ctx.OP.text)
-        if ctx.expression() != None:
-			#Visitar a expression e verificar se ela 
-            print(ctx.expression().getText())
         return self.visitChildren(ctx)
 
 
@@ -180,3 +118,6 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     def visitIdentifier(self, ctx:GrammarParser.IdentifierContext):
         return self.visitChildren(ctx)
 
+
+
+del GrammarParser

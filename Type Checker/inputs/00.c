@@ -24,8 +24,8 @@ void doing(float f, int ik) {
 int main () {
 	// Test: int op int
 	// Should Pass
-	int num = 2;
-	num = 3 + 2;
+	int num = 2, testinho = 3;
+	num = 3;
 	num = num - 2;
 	num = square(num) * num;
 	num = num / 3;
@@ -72,5 +72,6 @@ int main () {
 	float u = (doing(4, 2) + 4)*2;
 	
 	uv = 1.0;
+	sdikukui = 2;
 	return doing(2.0, x);
 }
