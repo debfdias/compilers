@@ -13,5 +13,5 @@ Geração de Lexer/Parser/Visitor
 obs.: O arquivo GrammarCheckerVisitor.py também deve estar no diretório 'antlr4-python3-runtime-4.7.2/src/autogen'.
 
 4. Execute o comando:
-	'python antlr4-python3-runtime-4.7.2/src/main.py < inputs/ArquivoTeste.c' 
+	'python antlr4-python3-runtime-4.7.2/src/main.py < inputs/00.c' 
 	trocando 'ArquivoTeste.c' pelo nome do arquivo teste que você queira executar.

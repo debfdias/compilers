@@ -106,6 +106,27 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
+        for i in range(len(ctx.array())):
+            text = ctx.array(i).identifier().getText()
+            self.ids_defined[text] = ctx.tyype().getText()
+        
+        for i in range(len(ctx.identifier())):
+            text = ctx.identifier(i).getText()
+            token = ctx.identifier(i).IDENTIFIER().getPayload()
+            self.ids_defined[text] = ctx.tyype().getText()
+
+            if ctx.expression(i) != None:
+                expr_type = self.visitExpression(ctx.expression(i))
+                var_type = self.ids_defined.get(text, Type.VOID)
+                if expr_type != var_type:
+                    if var_type == Type.FLOAT and expr_type == Type.INT:
+                        continue
+                    elif var_type == Type.INT and expr_type == Type.FLOAT:
+                        print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
+                    else:
+                        print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(expr_type, var_type, str(token.line), str(token.column)))
+
+        
         return self.visitChildren(ctx)
 
 
@@ -121,6 +142,11 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#array.
     def visitArray(self, ctx:GrammarParser.ArrayContext):
+        index_type = self.visit(ctx.expression())
+        if index_type != Type.INT:
+            token = ctx.identifier().IDENTIFIER().getPayload()
+            print("[ERROR]::[Array index should be a type INT.] ({},{})".format(str(token.line),str(token.column))) 
+        
         return self.visitChildren(ctx)
 
 
@@ -136,6 +162,10 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#arguments.
     def visitArguments(self, ctx:GrammarParser.ArgumentsContext):
+        for i in range(len(ctx.identifier())):
+            text = ctx.identifier(i).getText()
+            self.ids_defined[text] = ctx.tyype(i).getText()
+
         return self.visitChildren(ctx)
 
 
