@@ -108,26 +108,33 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
         for i in range(len(ctx.identifier())):
-            print(i)
-            print(ctx.identifier(i).getText())
-            print(ctx.tyype().getText())
+            #print(i)
+            #print(ctx.tyype().getText())
+            #print(ctx.identifier(i).getText())
+            #print(ctx.expression(i).getText())
             self.ids_defined[ctx.identifier(i).getText()] = ctx.tyype().getText()
         return self.visitChildren(ctx)
 
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
     def visitVariable_assignment(self, ctx:GrammarParser.Variable_assignmentContext):
+        id = ctx.identifier().IDENTIFIER().getText()
+        token = ctx.identifier().IDENTIFIER().getPayload()
         if ctx.identifier() != None:
 			#visitar checar se o identifier e verificar se ele já foi definido. Printar um erro se não foi
-            id = ctx.identifier().IDENTIFIER().getText()
-            token = ctx.identifier().IDENTIFIER().getPayload()
             if id not in self.ids_defined:
                 print("ERROR: undefined variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
-        if ctx.OP != None:
-            print(ctx.OP.text)
-        if ctx.expression() != None:
-			#Visitar a expression e verificar se ela 
-            print(ctx.expression().getText())
+                return
+        #if ctx.OP != None:
+            #print(ctx.OP.text)
+        if ctx.expression().floating() != None:
+			#Verificar se o a variável assignada é
+            print("TIPO") 
+            #print(self.ids_defined[id])
+            if Type.INT in self.ids_defined[id]:
+                print("WARNING: possible loss of information assigning float expression to int variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
+            #print(ctx.expression().getText())
+            #print(ctx.expression().floating().getText())
         return self.visitChildren(ctx)
 
 
