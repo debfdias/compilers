@@ -61,6 +61,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         self.ids_defined[name] = tyype, params, None
         self.inside_what_function = name
         self.visit(ctx.body())
+        self.inside_what_function = None
         return
 
 
@@ -125,13 +126,28 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                         print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
                     else:
                         print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(expr_type, var_type, str(token.line), str(token.column)))
-
-        
         return self.visitChildren(ctx)
 
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
     def visitVariable_assignment(self, ctx:GrammarParser.Variable_assignmentContext):
+        id = ctx.identifier().IDENTIFIER().getText()
+        token = ctx.identifier().IDENTIFIER().getPayload()
+        if ctx.identifier() != None:
+			#visitar checar se o identifier e verificar se ele já foi definido. Printar um erro se não foi
+            if id not in self.ids_defined:
+                print("ERROR: undefined variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
+                return
+        #if ctx.OP != None:
+            #print(ctx.OP.text)
+        if ctx.expression().floating() != None:
+			#Verificar se o a variável assignada é
+            print("TIPO") 
+            #print(self.ids_defined[id])
+            if Type.INT in self.ids_defined[id]:
+                print("WARNING: possible loss of information assigning float expression to int variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
+            #print(ctx.expression().getText())
+            #print(ctx.expression().floating().getText())
         return self.visitChildren(ctx)
 
 
