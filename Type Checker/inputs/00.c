@@ -31,11 +31,14 @@ int main () {
 	num = num / 3;
 	num = 2 + 5 * 3 / 2 - num * 4 / 3;
 	
+
 	int num2 = 0;
 	num2 += 20 * num - fatorial(square(2));
 	num2 -= num;
 	num2 /= 10 / 3 + 2*3;
 	num2 *= 3 + num2;
+
+	num2 = "abc";
 	
 	// Test: float = int
 	// Should Pass

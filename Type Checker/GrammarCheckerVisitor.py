@@ -117,37 +117,80 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             self.ids_defined[text] = ctx.tyype().getText()
 
             if ctx.expression(i) != None:
-                expr_type = self.visitExpression(ctx.expression(i))
+                #expr_type = self.visitExpression(ctx.expression(i))
+                expr_integer = ctx.expression(i).integer()
+                expr_floating = ctx.expression(i).floating()
+                expr_string = ctx.expression(i).string()
+                expr_function_call = ctx.expression(i).function_call()
+
                 var_type = self.ids_defined.get(text, Type.VOID)
-                if expr_type != var_type:
-                    if var_type == Type.FLOAT and expr_type == Type.INT:
+
+                if expr_integer != None:
+                    if var_type == Type.FLOAT:
                         continue
-                    elif var_type == Type.INT and expr_type == Type.FLOAT:
+                    elif var_type == Type.INT:
+                        continue
+                    else:
+                        print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.INT, var_type, str(token.line), str(token.column)))
+                elif expr_floating != None:
+                    if var_type == Type.FLOAT:
+                        continue
+                    elif var_type == Type.INT:
                         print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
                     else:
-                        print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(expr_type, var_type, str(token.line), str(token.column)))
+                        print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.FLOAT, var_type, str(token.line), str(token.column)))
+                elif expr_string != None:
+                    print(expr_string)
+                    if var_type == Type.STRING:
+                        continue
+                    else:
+                        print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.STRING, var_type, str(token.line), str(token.column)))
+                elif expr_function_call != None:
+                    print("FUNCTION CALL")
+
+                # if expr_type != var_type:
+                #     if var_type == Type.FLOAT and expr_type == Type.INT:
+                #         continue
+                #     elif var_type == Type.INT and expr_type == Type.FLOAT:
+                #         print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
+                #     else:
+                #         print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(expr_type, var_type, str(token.line), str(token.column)))
         return self.visitChildren(ctx)
 
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
     def visitVariable_assignment(self, ctx:GrammarParser.Variable_assignmentContext):
         id = ctx.identifier().IDENTIFIER().getText()
+        var_type = self.ids_defined.get(id, Type.VOID)
         token = ctx.identifier().IDENTIFIER().getPayload()
+
+
+        expr_integer = ctx.expression().integer()
+        expr_floating = ctx.expression().floating()
+        expr_string = ctx.expression().string()
+        expr_function_call = ctx.expression().function_call()
+
         if ctx.identifier() != None:
 			#visitar checar se o identifier e verificar se ele já foi definido. Printar um erro se não foi
             if id not in self.ids_defined:
                 print("ERROR: undefined variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
                 return
-        #if ctx.OP != None:
-            #print(ctx.OP.text)
-        if ctx.expression().floating() != None:
-			#Verificar se o a variável assignada é
-            print("TIPO") 
-            #print(self.ids_defined[id])
-            if Type.INT in self.ids_defined[id]:
-                print("WARNING: possible loss of information assigning float expression to int variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
-            #print(ctx.expression().getText())
-            #print(ctx.expression().floating().getText())
+        
+        if expr_integer != None:
+            if var_type != Type.FLOAT and var_type != Type.INT:
+                print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.INT, var_type, str(token.line), str(token.column)))
+        elif expr_floating != None:
+            if var_type == Type.INT:
+                print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
+            elif var_type != Type.FLOAT:
+                print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.FLOAT, var_type, str(token.line), str(token.column)))
+        elif expr_string != None:
+            print(expr_string)
+            if var_type != Type.STRING:
+                print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.STRING, var_type, str(token.line), str(token.column)))
+        elif expr_function_call != None:
+            print("FUNCTION CALL")
+            
         return self.visitChildren(ctx)
 
 
