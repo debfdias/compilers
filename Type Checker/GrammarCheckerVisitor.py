@@ -121,7 +121,37 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
-        return self.visitChildren(ctx)
+        tyype = ctx.tyype().getText()
+
+        for i in range(len(ctx.identifier())):
+            name = ctx.identifier(i).getText()
+            token = ctx.identifier(i).IDENTIFIER().getPayload()
+            if ctx.expression(i) != None:
+                expr_type, cte_value = self.visit(ctx.expression(i))
+                if expr_type == Type.VOID:
+                    print("ERROR: trying to assign void expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                elif expr_type == Type.FLOAT and tyype == Type.INT:
+                    print("WARNING: possible loss of information assigning float expression to int variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+            else:
+                cte_value = None
+            self.ids_defined[name] = tyype, -1, cte_value 
+
+        for i in range(len(ctx.array())):
+            name = ctx.array(i).identifier().getText()
+            token = ctx.array(i).identifier().IDENTIFIER().getPayload()
+            if ctx.array_literal(i) != None:
+                expr_types, cte_values_array = self.visit(ctx.array_literal(i))
+                for j in range(len(expr_types)):
+                    if expr_types[j] == Type.VOID:
+                        print("ERROR: trying to initialize void expression to array '" + name + "' at index " + str(j) + " of array literal in line " + str(token.line) + " and column " + str(token.column))
+                    elif expr_types[j] == Type.FLOAT and tyype == Type.INT:
+                        print("WARNING: possible loss of information initializing float expression to int array '" + name + "' at index " + str(j) + " of array literal in line " + str(token.line) + " and column " + str(token.column))
+            else:
+                cte_values_array = None
+            array_length = self.visit(ctx.array(i))
+            self.ids_defined[name] = tyype, array_length, cte_values_array
+
+        return
 
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
