@@ -44,16 +44,18 @@ class Type:
     FLOAT = "float"
     STRING = "char *"
 
+
+# This class defines a complete generic visitor for a parse tree produced by GrammarParser.
 class GrammarCheckerVisitor(ParseTreeVisitor):
-    ids_defined = {} # Dicionário para armazenar as informações necessárias para cada identifier definido
-    inside_what_function = "" # String que guarda a função atual que o visitor está visitando. Útil para acessar dados da função durante a visitação da árvore sintática da função.
+    ids_defined = {} # armazenar informações necessárias para cada identifier definido
+    inside_what_function = ""
 
     # Visit a parse tree produced by GrammarParser#fiile.
     def visitFiile(self, ctx:GrammarParser.FiileContext):
         return self.visitChildren(ctx)
 
 
-     # Visit a parse tree produced by GrammarParser#function_definition.
+    # Visit a parse tree produced by GrammarParser#function_definition.
     def visitFunction_definition(self, ctx:GrammarParser.Function_definitionContext):
         tyype = ctx.tyype().getText()
         name = ctx.identifier().getText()
@@ -61,7 +63,6 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         self.ids_defined[name] = tyype, params, None
         self.inside_what_function = name
         self.visit(ctx.body())
-        self.inside_what_function = None
         return
 
 
@@ -72,7 +73,20 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#statement.
     def visitStatement(self, ctx:GrammarParser.StatementContext):
-        return self.visitChildren(ctx)
+        if ctx.RETURN() != None:
+            token = ctx.RETURN().getPayload()
+            tyype, cte_value = self.visit(ctx.expression())
+            function_type, params, _ = self.ids_defined[self.inside_what_function]
+            if function_type == Type.INT and tyype == Type.FLOAT:
+                print("WARNING: possible loss of information returning float expression from int function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
+            elif function_type == Type.VOID and tyype != Type.VOID:
+                print("ERROR: trying to return a non void expression from void function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
+            elif function_type != Type.VOID and tyype == Type.VOID:
+                print("ERROR: trying to return void expression from function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
+
+        else:
+            self.visitChildren(ctx)
+        return
 
 
     # Visit a parse tree produced by GrammarParser#if_statement.
@@ -107,47 +121,11 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
-        for i in range(len(ctx.array())):
-            text = ctx.array(i).identifier().getText()
-            self.ids_defined[text] = ctx.tyype().getText()
-        
-        for i in range(len(ctx.identifier())):
-            text = ctx.identifier(i).getText()
-            token = ctx.identifier(i).IDENTIFIER().getPayload()
-            self.ids_defined[text] = ctx.tyype().getText()
-
-            if ctx.expression(i) != None:
-                expr_type = self.visitExpression(ctx.expression(i))
-                var_type = self.ids_defined.get(text, Type.VOID)
-                if expr_type != var_type:
-                    if var_type == Type.FLOAT and expr_type == Type.INT:
-                        continue
-                    elif var_type == Type.INT and expr_type == Type.FLOAT:
-                        print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
-                    else:
-                        print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(expr_type, var_type, str(token.line), str(token.column)))
         return self.visitChildren(ctx)
 
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
     def visitVariable_assignment(self, ctx:GrammarParser.Variable_assignmentContext):
-        id = ctx.identifier().IDENTIFIER().getText()
-        token = ctx.identifier().IDENTIFIER().getPayload()
-        if ctx.identifier() != None:
-			#visitar checar se o identifier e verificar se ele já foi definido. Printar um erro se não foi
-            if id not in self.ids_defined:
-                print("ERROR: undefined variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
-                return
-        #if ctx.OP != None:
-            #print(ctx.OP.text)
-        if ctx.expression().floating() != None:
-			#Verificar se o a variável assignada é
-            print("TIPO") 
-            #print(self.ids_defined[id])
-            if Type.INT in self.ids_defined[id]:
-                print("WARNING: possible loss of information assigning float expression to int variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
-            #print(ctx.expression().getText())
-            #print(ctx.expression().floating().getText())
         return self.visitChildren(ctx)
 
 
@@ -158,12 +136,11 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#array.
     def visitArray(self, ctx:GrammarParser.ArrayContext):
-        index_type = self.visit(ctx.expression())
-        if index_type != Type.INT:
+        tyype, cte_value = self.visit(ctx.expression())
+        if tyype != Type.INT:
             token = ctx.identifier().IDENTIFIER().getPayload()
-            print("[ERROR]::[Array index should be a type INT.] ({},{})".format(str(token.line),str(token.column))) 
-        
-        return self.visitChildren(ctx)
+            print("ERROR: array expression must be an integer, but it is " + str(tyype) + " in line " + str(token.line) + " and column " + str(token.column))
+        return cte_value
 
 
     # Visit a parse tree produced by GrammarParser#array_literal.
@@ -173,16 +150,34 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#function_call.
     def visitFunction_call(self, ctx:GrammarParser.Function_callContext):
-        return self.visitChildren(ctx)
+        name = ctx.identifier().getText()
+        token = ctx.identifier().IDENTIFIER().getPayload()
+        try:
+            tyype, args, cte_value = self.ids_defined[name]
+            if len(args) != len(ctx.expression()):
+                print("ERROR: incorrect number of parameters for function '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + ". Expecting " + str(len(args)) + ", but " + str(len(ctx.expression())) + " were given")
+        except:
+            print("ERROR: undefined function '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+
+        for i in range(len(ctx.expression())):
+            arg_type, arg_cte_value = self.visit(ctx.expression(i))
+            if i < len(args):
+                if arg_type == Type.VOID:
+                    print("ERROR: void expression passed as parameter " + str(i) + " of function '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                elif arg_type == Type.FLOAT and args[i] == Type.INT:
+                    print("WARNING: possible loss of information converting float expression to int expression in parameter " + str(i) + " of function '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+        return tyype, cte_value
 
 
     # Visit a parse tree produced by GrammarParser#arguments.
     def visitArguments(self, ctx:GrammarParser.ArgumentsContext):
+        params = []
         for i in range(len(ctx.identifier())):
-            text = ctx.identifier(i).getText()
-            self.ids_defined[text] = ctx.tyype(i).getText()
-
-        return self.visitChildren(ctx)
+            tyype = ctx.tyype(i).getText()
+            name = ctx.identifier(i).getText()
+            self.ids_defined[name] = tyype, -1, None
+            params += [tyype]
+        return params
 
 
     # Visit a parse tree produced by GrammarParser#tyype.
@@ -208,4 +203,3 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     # Visit a parse tree produced by GrammarParser#identifier.
     def visitIdentifier(self, ctx:GrammarParser.IdentifierContext):
         return self.visitChildren(ctx)
-
