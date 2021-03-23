@@ -108,9 +108,43 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
         for i in range(len(ctx.array())):
-            text = ctx.array(i).identifier().getText()
-            self.ids_defined[text] = ctx.tyype().getText()
-        
+            array_text = ctx.array(i).identifier().getText()
+            array_token = ctx.array(i).identifier().IDENTIFIER().getPayload()
+            self.ids_defined[array_text] = ctx.tyype().getText()
+
+            if ctx.array_literal(i) != None:
+                for j in range(len(ctx.array_literal(i).expression())):
+                    if ctx.array_literal(i).expression(j) != None:
+                        #expr_type = self.visitExpression(ctx.expression(i))
+                        array_expr_integer = ctx.array_literal(i).expression(j).integer()
+                        array_expr_floating = ctx.array_literal(i).expression(j).floating()
+                        array_expr_string = ctx.array_literal(i).expression(j).string()
+                        array_expr_function_call = ctx.array_literal(i).expression(j).function_call()
+
+                        array_type = self.ids_defined.get(array_text, Type.VOID)
+
+                        if array_expr_integer != None:
+                            if array_type == Type.FLOAT:
+                                continue
+                            elif array_type == Type.INT:
+                                continue
+                            else:
+                                print("ERROR: trying to initialize '{}' expression to '{}' array '{}' at index {} of array literal in line {} and column {}".format(Type.INT, array_type, array_text, j, str(array_token.line), str(array_token.column)))
+                        elif array_expr_floating != None:
+                            if array_type == Type.FLOAT:
+                                continue
+                            elif array_type == Type.INT:
+                                print("WARNING: possible loss of information initializing '{}' expression to '{}' array '{}' at index {} of array literal in line {} and column {}".format(Type.FLOAT, array_type, array_text, j, str(array_token.line), str(array_token.column)))
+                            else:
+                                print("ERROR: trying to initialize '{}' expression to '{}' array '{}' at index {} of array literal in line {} and column {}".format(Type.FLOAT, array_type, array_text, j, str(array_token.line), str(array_token.column)))
+                        elif array_expr_string != None:
+                            if array_type == Type.STRING:
+                                continue
+                            else:
+                                print("ERROR: trying to initialize '{}' expression to '{}' array '{}' at index {} of array literal in line {} and column {}".format(Type.STRING, array_type, array_text, j, str(array_token.line), str(array_token.column)))
+                        elif array_expr_function_call != None:
+                            print("FUNCTION CALL")
+
         for i in range(len(ctx.identifier())):
             text = ctx.identifier(i).getText()
             token = ctx.identifier(i).IDENTIFIER().getPayload()
@@ -140,7 +174,6 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                     else:
                         print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.FLOAT, var_type, str(token.line), str(token.column)))
                 elif expr_string != None:
-                    print(expr_string)
                     if var_type == Type.STRING:
                         continue
                     else:
@@ -160,36 +193,33 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
     def visitVariable_assignment(self, ctx:GrammarParser.Variable_assignmentContext):
-        id = ctx.identifier().IDENTIFIER().getText()
-        var_type = self.ids_defined.get(id, Type.VOID)
-        token = ctx.identifier().IDENTIFIER().getPayload()
-
-
-        expr_integer = ctx.expression().integer()
-        expr_floating = ctx.expression().floating()
-        expr_string = ctx.expression().string()
-        expr_function_call = ctx.expression().function_call()
-
         if ctx.identifier() != None:
-			#visitar checar se o identifier e verificar se ele já foi definido. Printar um erro se não foi
+            id = ctx.identifier().IDENTIFIER().getText()
+            var_type = self.ids_defined.get(id, Type.VOID)
+            token = ctx.identifier().IDENTIFIER().getPayload()
+            #visitar checar se o identifier e verificar se ele já foi definido. Printar um erro se não foi
             if id not in self.ids_defined:
                 print("ERROR: undefined variable '" + id + "' in line {}".format(token.line) + " and column {}".format(token.column))
                 return
-        
-        if expr_integer != None:
-            if var_type != Type.FLOAT and var_type != Type.INT:
-                print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.INT, var_type, str(token.line), str(token.column)))
-        elif expr_floating != None:
-            if var_type == Type.INT:
-                print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
-            elif var_type != Type.FLOAT:
-                print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.FLOAT, var_type, str(token.line), str(token.column)))
-        elif expr_string != None:
-            print(expr_string)
-            if var_type != Type.STRING:
-                print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.STRING, var_type, str(token.line), str(token.column)))
-        elif expr_function_call != None:
-            print("FUNCTION CALL")
+
+        if ctx.expression() != None:
+            expr_integer = ctx.expression().integer()
+            expr_floating = ctx.expression().floating()
+            expr_string = ctx.expression().string()
+            expr_function_call = ctx.expression().function_call()
+            if expr_integer != None:
+                if var_type != Type.FLOAT and var_type != Type.INT:
+                    print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.INT, var_type, str(token.line), str(token.column)))
+            elif expr_floating != None:
+                if var_type == Type.INT:
+                    print("[WARNING]::[Assignment of type FLOAT to type INT may cause loss of information.] ({},{})".format(str(token.line), str(token.column)))
+                elif var_type != Type.FLOAT:
+                    print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.FLOAT, var_type, str(token.line), str(token.column)))
+            elif expr_string != None:
+                if var_type != Type.STRING:
+                    print("[ERROR]::[You can not assign type <{}> to type <{}>.] ({},{})".format(Type.STRING, var_type, str(token.line), str(token.column)))
+            elif expr_function_call != None:
+                print("FUNCTION CALL")
             
         return self.visitChildren(ctx)
 
@@ -201,11 +231,36 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#array.
     def visitArray(self, ctx:GrammarParser.ArrayContext):
-        index_type = self.visit(ctx.expression())
-        if index_type != Type.INT:
-            token = ctx.identifier().IDENTIFIER().getPayload()
-            print("[ERROR]::[Array index should be a type INT.] ({},{})".format(str(token.line),str(token.column))) 
-        
+        if ctx.expression().identifier() != None:
+            expression_text = ctx.expression().identifier().IDENTIFIER().getText()
+
+            if self.ids_defined[expression_text] == None :
+                integer_type = ctx.expression().integer()
+                floating_type = ctx.expression().floating()
+                string_type = ctx.expression().string()
+                if ctx.expression().floating() != None:
+                    expr_type = Type.FLOAT
+                elif ctx.expression().string():
+                    expr_type = Type.STRING
+
+                if integer_type == None:
+                    token = ctx.identifier().IDENTIFIER().getPayload()
+                    print("ERROR: array expression must be an integer, but it is {} in line {} and column {}".format(expr_type, str(token.line), str(token.column)))
+            elif self.ids_defined[expression_text] != Type.INT:
+                token = ctx.identifier().IDENTIFIER().getPayload()
+                print("ERROR: array expression must be an integer, but it is {} in line {} and column {}".format(self.ids_defined[expression_text], str(token.line), str(token.column)))
+        else:
+            integer_type = ctx.expression().integer()
+            floating_type = ctx.expression().floating()
+            string_type = ctx.expression().string()
+            if ctx.expression().floating() != None:
+                expr_type = Type.FLOAT
+            elif ctx.expression().string():
+                expr_type = Type.STRING
+            #print(integer_type)
+            if integer_type == None:
+                token = ctx.identifier().IDENTIFIER().getPayload()
+                print("ERROR: array expression must be an integer, but it is {} in line {} and column {}".format(expr_type, str(token.line), str(token.column)))
         return self.visitChildren(ctx)
 
 
