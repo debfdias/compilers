@@ -72,6 +72,5 @@ int main () {
 	float u = (doing(4, 2) + 4)*2;
 	
 	uv = 1.0;
-	sdikukui = 2;
 	return doing(2.0, x);
 }
