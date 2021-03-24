@@ -355,7 +355,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#array_literal.
     def visitArray_literal(self, ctx:GrammarParser.Array_literalContext):
-        return self.visitChildren(ctx)
+        types = []
+        cte_values_array = []
+        for i in range(len(ctx.expression())):
+            tyype, cte_value = self.visit(ctx.expression(i))
+            types += [tyype]
+            cte_values_array += [cte_value]
+        return types, cte_values_array
 
 
     # Visit a parse tree produced by GrammarParser#function_call.
