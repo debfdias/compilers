@@ -75,19 +75,21 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     def visitStatement(self, ctx:GrammarParser.StatementContext):
         if ctx.RETURN() != None:
             token = ctx.RETURN().getPayload()
-            tyype, cte_value = self.visit(ctx.expression())
+            return_type, cte_value = self.visit(ctx.expression())
             function_type, params, _ = self.ids_defined[self.inside_what_function]
-            if function_type == Type.INT and tyype == Type.FLOAT:
-                print("WARNING: possible loss of information returning float expression from int function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
-            elif function_type == Type.VOID and tyype != Type.VOID:
-                print("ERROR: trying to return a non void expression from void function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
-            elif function_type != Type.VOID and tyype == Type.VOID:
-                print("ERROR: trying to return void expression from function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
 
+            if(return_type != function_type):
+                if(return_type in [Type.STRING, Type.INT, Type.FLOAT] and function_type == Type.VOID):
+                    print("ERROR: trying to return a non void expression from void function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
+                if(return_type == Type.FLOAT and function_type == Type.INT):
+                    print("WARNING: possible loss of information returning float expression from int function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
+                if(return_type == Type.STRING and function_type in [Type.INT, Type.FLOAT]):
+                    print("ERROR: trying to return a string expression from int function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
+                if(return_type == Type.VOID and function_type in [Type.STRING, Type.INT, Type.FLOAT]):
+                    print("ERROR: trying to return a void expression from function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column))
         else:
             self.visitChildren(ctx)
         return
-
 
     # Visit a parse tree produced by GrammarParser#if_statement.
     def visitIf_statement(self, ctx:GrammarParser.If_statementContext):
@@ -121,7 +123,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
-        tyype = ctx.tyype().getText()
+        function_type = ctx.tyype().getText()
 
         for i in range(len(ctx.identifier())):
             name = ctx.identifier(i).getText()
@@ -130,11 +132,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 expr_type, cte_value = self.visit(ctx.expression(i))
                 if expr_type == Type.VOID:
                     print("ERROR: trying to assign void expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
-                elif expr_type == Type.FLOAT and tyype == Type.INT:
+                elif expr_type == Type.FLOAT and function_type == Type.INT:
                     print("WARNING: possible loss of information assigning float expression to int variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                elif expr_type == Type.STRING and (function_type == Type.INT or function_type == Type.FLOAT):
+                    print("ERROR: trying to initialize 'char *' expression to '" + name + "' array in line " + str(token.line) + " and column " + str(token.column))
             else:
                 cte_value = None
-            self.ids_defined[name] = tyype, -1, cte_value # -1 means not a array, therefore no length here (vide 15 lines below)
+            self.ids_defined[name] = function_type, -1, cte_value 
 
         for i in range(len(ctx.array())):
             name = ctx.array(i).identifier().getText()
@@ -146,12 +150,14 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 for j in range(len(expr_types)):
                     if expr_types[j] == Type.VOID:
                         print("ERROR: trying to initialize void expression to array '" + name + "' at index " + str(j) + " of array literal in line " + str(token.line) + " and column " + str(token.column))
-                    elif expr_types[j] == Type.FLOAT and tyype == Type.INT:
+                    elif expr_types[j] == Type.FLOAT and function_type == Type.INT:
                         print("WARNING: possible loss of information initializing float expression to int array '" + name + "' at index " + str(j) + " of array literal in line " + str(token.line) + " and column " + str(token.column))
+                    elif expr_types[j] == Type.STRING and (function_type == Type.INT or function_type == Type.FLOAT):
+                        print("ERROR: trying to initialize 'char *' expression to '" + name + "' array at index '" + str(j) + "' of array literal in line " + str(token.line) + " and column " + str(token.column))
             else:
                 cte_values_array = None
             array_length = self.visit(ctx.array(i))
-            self.ids_defined[name] = tyype, array_length, cte_values_array
+            self.ids_defined[name] = function_type, array_length, cte_values_array
 
         return
 
@@ -193,6 +199,10 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 print("ERROR: trying to assign void expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
             elif expr_type == Type.FLOAT and tyype == Type.INT:
                 print("WARNING: possible loss of information assigning float expression to int variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+            elif expr_type == Type.STRING and (tyype == Type.INT or tyype == Type.FLOAT):
+                print("ERROR: trying to assign 'char *' expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+            elif expr_type == Type.FLOAT and tyype != Type.FLOAT:
+                print("ERROR: trying to assign 'float' expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
 
             if op == '=':
               cte_value = expr_cte_value
