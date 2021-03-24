@@ -234,7 +234,6 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         token = None
         cte_value = None 
         if len(ctx.expression()) == 0:
-
             if ctx.integer() != None:
                 tyype = Type.INT
                 cte_value = int(ctx.integer().getText())
@@ -256,6 +255,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
             elif ctx.array() != None:
                 name = ctx.array().identifier().getText()
+
                 try:
                     tyype, array_length, cte_values_array = self.ids_defined[name]
                 except:
@@ -263,13 +263,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                     print("ERROR: undefined array '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
 
                 array_index = self.visit(ctx.array())
-
-                if array_index != None and array_length != None:
-                    if array_index < 0 or array_index >= array_length:
-                        print("ERROR:  array '" + name + "' index out of bounds in line " + str(token.line) + " and column " + str(token.column) + "\n")
-                    else:
-                        cte_value = cte_values_array[array_index]
-
+                
             elif ctx.function_call() != None:
                 tyype, cte_value = self.visit(ctx.function_call())
 
@@ -360,6 +354,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         if tyype != Type.INT:
             token = ctx.identifier().IDENTIFIER().getPayload()
             print("ERROR: array expression must be an integer, but it is " + str(tyype) + " in line " + str(token.line) + " and column " + str(token.column))
+
         return cte_value
 
 
@@ -376,22 +371,22 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#function_call.
     def visitFunction_call(self, ctx:GrammarParser.Function_callContext):
-        name = ctx.identifier().getText()
+        function_name = ctx.identifier().getText()
         token = ctx.identifier().IDENTIFIER().getPayload()
         try:
-            tyype, args, cte_value = self.ids_defined[name]
+            tyype, args, cte_value = self.ids_defined[function_name]
             if len(args) != len(ctx.expression()):
-                print("ERROR: incorrect number of parameters for function '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + ". Expecting " + str(len(args)) + ", but " + str(len(ctx.expression())) + " were given")
+                print("ERROR: incorrect number of parameters for function '" + function_name + "' in line " + str(token.line) + " and column " + str(token.column) + ". Expecting " + str(len(args)) + ", but " + str(len(ctx.expression())) + " were given")
         except:
-            print("ERROR: undefined function '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+            print("ERROR: undefined function '" + function_name + "' in line " + str(token.line) + " and column " + str(token.column))
 
         for i in range(len(ctx.expression())):
             arg_type, arg_cte_value = self.visit(ctx.expression(i))
             if i < len(args):
                 if arg_type == Type.VOID:
-                    print("ERROR: void expression passed as parameter " + str(i) + " of function '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                    print("ERROR: void expression passed as parameter " + str(i) + " of function '" + function_name + "' in line " + str(token.line) + " and column " + str(token.column))
                 elif arg_type == Type.FLOAT and args[i] == Type.INT:
-                    print("WARNING: possible loss of information converting float expression to int expression in parameter " + str(i) + " of function '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                    print("WARNING: possible loss of information converting float expression to int expression in parameter " + str(i) + " of function '" + function_name + "' in line " + str(token.line) + " and column " + str(token.column))
         return tyype, cte_value
 
 
@@ -400,8 +395,8 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         params = []
         for i in range(len(ctx.identifier())):
             tyype = ctx.tyype(i).getText()
-            name = ctx.identifier(i).getText()
-            self.ids_defined[name] = tyype, -1, None
+            function_name = ctx.identifier(i).getText()
+            self.ids_defined[function_name] = tyype, -1, None
             params += [tyype]
         return params
 
