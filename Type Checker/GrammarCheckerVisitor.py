@@ -134,11 +134,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                     print("WARNING: possible loss of information assigning float expression to int variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
             else:
                 cte_value = None
-            self.ids_defined[name] = tyype, -1, cte_value 
+            self.ids_defined[name] = tyype, -1, cte_value # -1 means not a array, therefore no length here (vide 15 lines below)
 
         for i in range(len(ctx.array())):
             name = ctx.array(i).identifier().getText()
             token = ctx.array(i).identifier().IDENTIFIER().getPayload()
+            #array_length, _ = self.visit(ctx.array(i))
+
             if ctx.array_literal(i) != None:
                 expr_types, cte_values_array = self.visit(ctx.array_literal(i))
                 for j in range(len(expr_types)):
@@ -156,7 +158,64 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#variable_assignment.
     def visitVariable_assignment(self, ctx:GrammarParser.Variable_assignmentContext):
-        return self.visitChildren(ctx)
+        if ctx.identifier() != None:
+            name = ctx.identifier().getText()
+            token = ctx.identifier().IDENTIFIER().getPayload()
+            try:
+                tyype, _, cte_value = self.ids_defined[name]
+            except:
+                print("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                return
+        else: # array
+            name = ctx.array().identifier().getText()
+            token = ctx.array().identifier().IDENTIFIER().getPayload()
+            try:
+                tyype, array_length, cte_values_array = self.ids_defined[name]
+            except:
+                print("ERROR: undefined array '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+            array_index = self.visit(ctx.array())
+            if cte_values_array != None:
+                cte_value = cte_values_array[array_index]
+            else:
+                cte_value = None
+
+        op = ctx.OP.text
+        if op == '++' or op == '--':
+          if cte_value is None:
+            cte_value = None
+          elif op == '++':
+            cte_value = eval("{} {} {}".format(cte_value, '+', 1))
+          elif op == '--':
+            cte_value = eval("{} {} {}".format(cte_value, '-', 1))
+        else:
+            expr_type, expr_cte_value = self.visit(ctx.expression())
+            if expr_type == Type.VOID:
+                print("ERROR: trying to assign void expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+            elif expr_type == Type.FLOAT and tyype == Type.INT:
+                print("WARNING: possible loss of information assigning float expression to int variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+
+            if op == '=':
+              cte_value = expr_cte_value
+            elif expr_cte_value == None or cte_value == None:
+              cte_value = None
+            elif op == '/=':
+              cte_value = eval("{} {} {}".format(cte_value, '/', expr_cte_value))
+            elif op == '*=':
+              cte_value = eval("{} {} {}".format(cte_value, '*', expr_cte_value))
+            elif op == '+=':
+              cte_value = eval("{} {} {}".format(cte_value, '+', expr_cte_value))
+            elif op == '-=':
+              cte_value = eval("{} {} {}".format(cte_value, '-', expr_cte_value))
+            else:
+              cte_value = eval("{} {} {}".format(cte_value, op, expr_cte_value))
+
+        if ctx.identifier() != None:
+            self.ids_defined[name] = tyype, -1, cte_value
+        else: 
+            if cte_values_array != None:
+                cte_values_array[array_index] = cte_value
+            self.ids_defined[name] = tyype, array_length, cte_values_array
+        return
 
 
     # Visit a parse tree produced by GrammarParser#expression.
@@ -176,7 +235,6 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
             elif ctx.string() != None:
                 tyype = Type.STRING
-                cte_value = str(ctx.string().getText())
 
             elif ctx.identifier() != None:
                 name = ctx.identifier().getText()
@@ -193,15 +251,15 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 except:
                     token = ctx.array().identifier().IDENTIFIER().getPayload()
                     print("ERROR: undefined array '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+
                 array_index = self.visit(ctx.array())
 
-
                 if array_index != None and array_length != None:
-                  if (array_index > array_length - 1):
-                    token = ctx.array().identifier().IDENTIFIER().getPayload()
-                    print("ERROR: array index out of bounds '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
-                  elif cte_values_array is not None:
-                    cte_value = cte_values_array[array_index]
+                    if array_index < 0 or array_index >= array_length:
+                        print("ERROR:  array '" + name + "' index out of bounds in line " + str(token.line) + " and column " + str(token.column) + "\n")
+                    else:
+                        cte_value = cte_values_array[array_index]
+
             elif ctx.function_call() != None:
                 tyype, cte_value = self.visit(ctx.function_call())
 
@@ -211,15 +269,20 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 text = ctx.OP.text
                 token = ctx.OP
                 tyype, cte_value = self.visit(ctx.expression(0))
-                cte_value = eval("{}{}".format(text, cte_value))
+
                 if tyype == Type.VOID:
                     print("ERROR: unary operator '" + text + "' used on type void in line " + str(token.line) + " and column " + str(token.column))
+                elif cte_value != None:
+                    if text == '-':
+                        cte_value = -cte_value
+                else:
+                    cte_value = None
 
-            else:
+            else: 
                 tyype, cte_value = self.visit(ctx.expression(0))
 
 
-        elif len(ctx.expression()) == 2:
+        elif len(ctx.expression()) == 2: 
             text = ctx.OP.text
             token = ctx.OP
             left, left_cte_value = self.visit(ctx.expression(0))
@@ -232,13 +295,51 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                     tyype = Type.FLOAT
                 else:
                     tyype = Type.INT
+
+                if left_cte_value != None and right_cte_value != None:
+                    if text == '*':
+                        cte_value = left_cte_value * right_cte_value
+                    elif text == '/':
+                        cte_value = left_cte_value / right_cte_value
+                    elif text == '+':
+                        cte_value = left_cte_value + right_cte_value
+                    elif text == '-':
+                        cte_value = left_cte_value - right_cte_value
             else:
                 tyype = Type.INT
-
-            if left_cte_value != None and right_cte_value != None and left != Type.STRING and right != Type.STRING:
-                cte_value = eval("{} {} {}".format(left_cte_value, text, right_cte_value))
-                if isinstance(cte_value, bool):
-                  cte_value = int(cte_value)
+                if left_cte_value != None and right_cte_value != None:
+                    if text == '<':
+                        if left_cte_value < right_cte_value:
+                            cte_value = 1
+                        else:
+                            cte_value = 0
+                    elif text == '>':
+                        if left_cte_value > right_cte_value:
+                            cte_value = 1
+                        else:
+                            cte_value = 0
+                    elif text == '==':
+                        if left_cte_value == right_cte_value:
+                            cte_value = 1
+                        else:
+                            cte_value = 0
+                    elif text == '!=':
+                        if left_cte_value != right_cte_value:
+                            cte_value = 1
+                        else:
+                            cte_value = 0
+                    elif text == '<=':
+                        if left_cte_value <= right_cte_value:
+                            cte_value = 1
+                        else:
+                            cte_value = 0
+                    elif text == '>=':
+                        if left_cte_value >= right_cte_value:
+                            cte_value = 1
+                        else:
+                            cte_value = 0
+                else:
+                    cte_value = None
 
         return tyype, cte_value
 
