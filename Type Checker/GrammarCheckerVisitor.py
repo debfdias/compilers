@@ -230,7 +230,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#expression.
     def visitExpression(self, ctx:GrammarParser.ExpressionContext):
-        tyype = Type.VOID
+        tyype = None
         token = None
         cte_value = None 
         if len(ctx.expression()) == 0:
