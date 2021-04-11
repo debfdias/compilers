@@ -18,6 +18,9 @@ class Type:
 class GrammarCheckerVisitor(ParseTreeVisitor):
     ids_defined = {} # armazenar informações necessárias para cada identifier definido
     inside_what_function = ""
+    global_variables = []
+    inside_if = False
+    inside_for = False
 
     # Visit a parse tree produced by GrammarParser#fiile.
     def visitFiile(self, ctx:GrammarParser.FiileContext):
@@ -60,6 +63,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
     # Visit a parse tree produced by GrammarParser#if_statement.
     def visitIf_statement(self, ctx:GrammarParser.If_statementContext):
+        inside_if = True
         return self.visitChildren(ctx)
 
 
@@ -91,19 +95,30 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     # Visit a parse tree produced by GrammarParser#variable_definition.
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
         tyype = ctx.tyype().getText()
-
+        is_global = False
+        cte_value = None
         for i in range(len(ctx.identifier())):
             name = ctx.identifier(i).getText()
             token = ctx.identifier(i).IDENTIFIER().getPayload()
+            if self.inside_what_function == "":
+                self.global_variables.append(name)
+                print(self.global_variables)
+                is_global = True
             if ctx.expression(i) != None:
-                expr_type, cte_value = self.visit(ctx.expression(i))
+                if is_global:
+                    expr_type = self.visit(ctx.expression(i))
+                else:
+                    expr_type, cte_value = self.visit(ctx.expression(i))
                 if expr_type == Type.VOID:
                     print("ERROR: trying to assign void expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
                 elif expr_type == Type.FLOAT and tyype == Type.INT:
                     print("WARNING: possible loss of information assigning float expression to int variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
             else:
                 cte_value = None
-            self.ids_defined[name] = tyype, -1, cte_value # -1 means not a array, therefore no length here (vide 15 lines below)
+            if is_global:
+                self.ids_defined[name] = tyype, -1
+            else:
+                self.ids_defined[name] = tyype, -1, cte_value # -1 means not a array, therefore no length here (vide 15 lines below)
 
         for i in range(len(ctx.array())):
             name = ctx.array(i).identifier().getText()
@@ -128,11 +143,18 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         if ctx.identifier() != None:
             name = ctx.identifier().getText()
             token = ctx.identifier().IDENTIFIER().getPayload()
-            try:
-                tyype, _, cte_value = self.ids_defined[name]
-            except:
-                print("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
-                return
+            if name in self.global_variables:
+                try:
+                    tyype, _ = self.ids_defined[name]
+                except:
+                    print("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                    return
+            else:
+                try:
+                    tyype, _, cte_value = self.ids_defined[name]
+                except:
+                    print("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                    return
         else: # array
             name = ctx.array().identifier().getText()
             token = ctx.array().identifier().IDENTIFIER().getPayload()
@@ -205,11 +227,18 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
             elif ctx.identifier() != None:
                 name = ctx.identifier().getText()
-                try:
-                    tyype, _, cte_value = self.ids_defined[name]
-                except:
-                    token = ctx.identifier().IDENTIFIER().getPayload()
-                    print("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                if name in self.global_variables:
+                    try:
+                        tyype, _ = self.ids_defined[name]
+                    except:
+                        token = ctx.identifier().IDENTIFIER().getPayload()
+                        print("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
+                else:
+                    try:
+                        tyype, _, cte_value = self.ids_defined[name]
+                    except:
+                        token = ctx.identifier().IDENTIFIER().getPayload()
+                        print("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column))
 
             elif ctx.array() != None:
                 name = ctx.array().identifier().getText()
@@ -225,13 +254,23 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
         elif len(ctx.expression()) == 1:
 
-            if ctx.OP != None: 
-                text = ctx.OP.text
-                token = ctx.OP
-                tyype, cte_value = self.visit(ctx.expression(0))
-                cte_value = eval("{}{}".format(text, cte_value))
-                if tyype == Type.VOID:
-                    print("ERROR: unary operator '" + text + "' used on type void in line " + str(token.line) + " and column " + str(token.column))
+            if ctx.OP != None:
+                name = ctx.expression(0)
+                print(name)
+                if name in self.global_variables:
+                    text = ctx.OP.text
+                    token = ctx.OP
+                    tyype = self.visit(ctx.expression(0))
+                    if tyype == Type.VOID:
+                        print("ERROR: unary operator '" + text + "' used on type void in line " + str(token.line) + " and column " + str(token.column))
+                else:
+                    text = ctx.OP.text
+                    token = ctx.OP
+                    tyype, cte_value = self.visit(ctx.expression(0))
+                    cte_value = eval("{}{}".format(text, cte_value))
+                    if tyype == Type.VOID:
+                        print("ERROR: unary operator '" + text + "' used on type void in line " + str(token.line) + " and column " + str(token.column))
+                
 
             else: 
                 tyype, cte_value = self.visit(ctx.expression(0))
