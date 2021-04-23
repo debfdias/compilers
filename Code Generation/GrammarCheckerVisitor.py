@@ -49,10 +49,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     ids_defined = {} # armazenar informações necessárias para cada identifier definido
     inside_what_function = ""
     next_ir_register = 0
+    out = open('output.ll', 'w')
 
     # Visit a parse tree produced by GrammarParser#fiile.
     def visitFiile(self, ctx:GrammarParser.FiileContext):
-        return self.visitChildren(ctx)
+        self.visitChildren(ctx)
+        self.out.close()
+        return
 
 
     # Visit a parse tree produced by GrammarParser#function_definition.
@@ -62,12 +65,41 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
         params = self.visit(ctx.arguments())
 
+        self.out.write('define ')
+
+        if(tyype == Type.INT):
+            self.out.write('i32 ')
+        if(tyype == Type.FLOAT):
+            self.out.write('float ')
+        if(tyype == Type.VOID):
+            self.out.write('void ')
+
+        self.out.write('@' + name + '(')
+        count = 0
+        for element in params:
+            if(element == Type.INT):
+                if(count > 0):
+                    self.out.write(', i32 %' + str(count))
+                else:
+                    self.out.write('i32 %' + str(count))
+            if(element == Type.FLOAT):
+                if(count > 0):
+                    self.out.write(', float %' + str(count))
+                else:
+                    self.out.write('float %' + str(count))
+            #if(tyype == Type.VOID):
+            #    self.out.write('void ')
+            count = count + 1
+
+        self.out.write(') {\n')
+
         cte_value = None
         ir_register = None
         self.ids_defined[name] = tyype, params, cte_value, ir_register
         self.inside_what_function = name
         self.next_ir_register = len(params) + 1
         self.visit(ctx.body())
+        self.out.write('}\n')
         return
 
 
