@@ -63,8 +63,6 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         tyype = ctx.tyype().getText()
         name = ctx.identifier().getText()
 
-        params = self.visit(ctx.arguments())
-
         self.out.write('define ')
 
         if(tyype == Type.INT):
@@ -75,29 +73,15 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             self.out.write('void ')
 
         self.out.write('@' + name + '(')
-        count = 0
-        for element in params:
-            if(element == Type.INT):
-                if(count > 0):
-                    self.out.write(', i32 %' + str(count))
-                else:
-                    self.out.write('i32 %' + str(count))
-            if(element == Type.FLOAT):
-                if(count > 0):
-                    self.out.write(', float %' + str(count))
-                else:
-                    self.out.write('float %' + str(count))
-            #if(tyype == Type.VOID):
-            #    self.out.write('void ')
-            count = count + 1
 
-        self.out.write(') {\n')
+        params = self.visit(ctx.arguments())
 
         cte_value = None
         ir_register = None
         self.ids_defined[name] = tyype, params, cte_value, ir_register
         self.inside_what_function = name
         self.next_ir_register = len(params) + 1
+
         self.visit(ctx.body())
         self.out.write('}\n')
         return
@@ -465,12 +449,43 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     def visitArguments(self, ctx:GrammarParser.ArgumentsContext):
         params = []
         cte_value = None
+
         for i in range(len(ctx.identifier())):
             tyype = ctx.tyype(i).getText()
             name = ctx.identifier(i).getText()
             ir_register = i
             self.ids_defined[name] = tyype, -1, cte_value, ir_register
             params += [tyype]
+            if(tyype == Type.INT):
+                if(ir_register > 0):
+                    self.out.write(', i32 %' + str(ir_register))
+                else:
+                    self.out.write('i32 %' + str(ir_register))
+            if(tyype == Type.FLOAT):
+                if(ir_register > 0):
+                    self.out.write(', float %' + str(ir_register))
+                else:
+                    self.out.write('float %' + str(ir_register))
+            #if(tyype == Type.VOID):
+            #    self.out.write('void ')
+
+        self.out.write(') {\n')
+
+        for i in range(len(ctx.identifier())):
+            tyype = ctx.tyype(i).getText()
+            name = ctx.identifier(i).getText()
+            ir_register = i
+
+            if(tyype == Type.INT):
+                self.out.write('\t')
+                self.out.write('%' + name + ' = ' + 'alloca i32, align 4\n')
+            if(tyype == Type.FLOAT):
+                self.out.write('\t')
+                self.out.write('%' + name + ' = ' + 'alloca float, align 4\n')
+            #if(tyype == Type.VOID):
+            #    self.out.write('void ')
+
+
         return params
 
 
