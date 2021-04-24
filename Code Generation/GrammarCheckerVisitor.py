@@ -479,9 +479,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             if(tyype == Type.INT):
                 self.out.write('\t')
                 self.out.write('%' + name + ' = ' + 'alloca i32, align 4\n')
+                self.out.write('\t')
+                self.out.write('store i32 %' + str(ir_register) + ', i32* %' + name + ', align 4\n')
             if(tyype == Type.FLOAT):
                 self.out.write('\t')
                 self.out.write('%' + name + ' = ' + 'alloca float, align 4\n')
+                self.out.write('\t')
+                self.out.write('store float %' + str(ir_register) + ', float* %' + name + ', align 4\n')
             #if(tyype == Type.VOID):
             #    self.out.write('void ')
 
