@@ -98,7 +98,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             token = ctx.RETURN().getPayload()
             function_type, params, cte_value, ir_register = self.ids_defined[self.inside_what_function]
             if ctx.expression() != None:
-                tyype, cte_value, ir_register = self.visit(ctx.expression())
+                tyype, cte_value, ir_register, loaded = self.visit(ctx.expression())
                 if function_type == Type.INT and tyype == Type.FLOAT:
                     err("WARNING: possible loss of information returning float expression from int function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
                 elif function_type != Type.VOID and tyype == Type.VOID:
@@ -152,23 +152,31 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     def visitVariable_definition(self, ctx:GrammarParser.Variable_definitionContext):
         tyype = ctx.tyype().getText()
         ir_register = None
+        loaded = False
 
         # identifiers
         for i in range(len(ctx.identifier())):
             name = ctx.identifier(i).getText()
+            print('DEFINIÇÃO' + name)
             token = ctx.identifier(i).IDENTIFIER().getPayload()
             if ctx.expression(i) != None:
-                expr_type, cte_value, ir_register = self.visit(ctx.expression(i))
+                print('DEFINIÇÃO IF ' + name)
+                expr_type, cte_value, ir_register, loaded = self.visit(ctx.expression(i))
+                print('DEFINIÇÃO IF ' + str(expr_type))
+                print('DEFINIÇÃO IF ' + str(cte_value))
+                print('DEFINIÇÃO IF ' + str(ir_register))
+                print('DEFINIÇÃO IF ' + str(loaded))
                 if expr_type == Type.VOID:
                     err("ERROR: trying to assign void expression to variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
                     exit(-1)
                 elif expr_type == Type.FLOAT and tyype == Type.INT:
                     err("WARNING: possible loss of information assigning float expression to int variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
             else:
+                print('DEFINIÇÃO ELSE ' + name)
                 # unitialized variables now get value 0
                 cte_value = 0
                 ir_register = None
-            self.ids_defined[name] = tyype, -1, cte_value, ir_register # -1 means not a array, therefore no length here (vide 15 lines below)
+            self.ids_defined[name] = tyype, -1, cte_value, ir_register, loaded # -1 means not a array, therefore no length here (vide 15 lines below)
 
         # arrays
         for i in range(len(ctx.array())):
@@ -203,7 +211,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             try:
                 tyype, _, cte_value, ir_register = self.ids_defined[name]
             except:
-                err("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
+                err("ERROR: undefined variable assignment'" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
                 exit(-1)
                 return
 
@@ -272,6 +280,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         tyype = Type.VOID
         cte_value = None
         ir_register = None
+        loaded = False
 
         if len(ctx.expression()) == 0:
 
@@ -289,11 +298,42 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             elif ctx.identifier() != None:
                 name = ctx.identifier().getText()
                 try:
-                    tyype, _, cte_value, ir_register = self.ids_defined[name]
+                    print(name)
+                    print(self.ids_defined[name])
+                    tyype, _, cte_value, ir_register, loaded = self.ids_defined[name]
+                    
                 except:
                     token = ctx.identifier().IDENTIFIER().getPayload()
                     err("ERROR: undefined variable '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
                     exit(-1)
+
+                if(not loaded):
+                    # if(cte_value != None):
+                        # if tyype == Type.INT:
+                        #     print('\t%' + str(self.next_ir_register) + ' = load i32, i32* %' + name + ', align 4\n')
+                        #     self.out.write('\t%' + str(self.next_ir_register) + ' = load i32, i32* %' + name + ', align 4\n')
+
+                        # elif tyype == Type.FLOAT:
+                        #     print('\t%' + str(self.next_ir_register) + ' = load float, float* %' + name + ', align 4\n')
+                        #     self.out.write('\t%' + str(self.next_ir_register) + ' = load float, float* %' + name + ', align 4\n')
+
+                        #     #elif tyype == Type.sTRING:
+                    if(cte_value == None):
+                        if tyype == Type.INT:
+                            #print('\t%' + str(self.next_ir_register) + ' = load i32, i32* %' + name + ', align 4\n')
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = load i32, i32* %' + name + ', align 4\n')
+
+                        elif tyype == Type.FLOAT:
+                            #print('\t%' + str(self.next_ir_register) + ' = load float, float* %' + name + ', align 4\n')
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = load float, float* %' + name + ', align 4\n')
+
+                            #elif tyype == Type.sTRING:
+
+                    # print(name)
+                    # print(cte_value)
+                    self.next_ir_register = self.next_ir_register + 1
+                    loaded = True
+                    self.ids_defined[name] = tyype, _, cte_value, ir_register, loaded
 
             elif ctx.array() != None:
                 name = ctx.array().identifier().getText()
@@ -330,14 +370,14 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                         cte_value = -cte_value
 
             else: # parentheses
-                tyype, cte_value, ir_register = self.visit(ctx.expression(0))
+                tyype, cte_value, ir_register, loaded = self.visit(ctx.expression(0))
 
 
         elif len(ctx.expression()) == 2: # binary operators
             text = ctx.OP.text
             token = ctx.OP
-            left_type, left_cte_value, left_ir_register = self.visit(ctx.expression(0))
-            right_type, right_cte_value, right_ir_register = self.visit(ctx.expression(1))
+            left_type, left_cte_value, left_ir_register, loaded = self.visit(ctx.expression(0))
+            right_type, right_cte_value, right_ir_register, loaded = self.visit(ctx.expression(1))
             if left_type == Type.VOID or right_type == Type.VOID:
                 err("ERROR: binary operator '" + text + "' used on type void in line " + str(token.line) + " and column " + str(token.column) + "\n")
                 exit(-1)
@@ -395,7 +435,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 else:
                     cte_value = None
 
-        return tyype, cte_value, ir_register
+        return tyype, cte_value, ir_register, loaded
 
 
     # Visit a parse tree produced by GrammarParser#array.
@@ -435,7 +475,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             exit(-1)
 
         for i in range(len(ctx.expression())):
-            arg_type, arg_cte_value, arg_ir_register = self.visit(ctx.expression(i))
+            arg_type, arg_cte_value, arg_ir_register, loaded = self.visit(ctx.expression(i))
             if i < len(args):
                 if arg_type == Type.VOID:
                     err("ERROR: void expression passed as parameter " + str(i) + " of function '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
@@ -449,12 +489,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
     def visitArguments(self, ctx:GrammarParser.ArgumentsContext):
         params = []
         cte_value = None
+        loaded = False
 
         for i in range(len(ctx.identifier())):
             tyype = ctx.tyype(i).getText()
             name = ctx.identifier(i).getText()
             ir_register = i
-            self.ids_defined[name] = tyype, -1, cte_value, ir_register
+            self.ids_defined[name] = tyype, -1, cte_value, ir_register, loaded
             params += [tyype]
             if(tyype == Type.INT):
                 if(ir_register > 0):
