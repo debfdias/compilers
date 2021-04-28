@@ -107,11 +107,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 elif function_type == Type.VOID and tyype != Type.VOID:
                     err("ERROR: trying to return a non void expression from void function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
                     exit(-1)
+                if(function_type == Type.INT):
+                    self.out.write('\tret i32 ' + str(ir_register) + '\n')
+                elif(function_type == Type.FLOAT):
+                    self.out.write('\tret float ' + str(ir_register) + '\n')
             elif function_type != Type.VOID:
                 err("ERROR: trying to return void expression from function '" + self.inside_what_function + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
                 exit(-1)
-
-
 
         else:
             self.visitChildren(ctx)
