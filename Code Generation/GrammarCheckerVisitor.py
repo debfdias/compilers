@@ -488,6 +488,13 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
         except:
             err("ERROR: undefined function '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
             exit(-1)
+        
+        if(tyype == Type.INT):
+            self.out.write('\tcall i32 ' + '@' + name + ' (')
+        if(tyype == Type.FLOAT):
+            self.out.write('\tcall float ' + '@' + name + ' (')
+        if(tyype == Type.VOID):
+            self.out.write('\tcall void ' + '@' + name + ' (')
 
         for i in range(len(ctx.expression())):
             arg_type, arg_cte_value, arg_ir_register = self.visit(ctx.expression(i))
@@ -497,6 +504,20 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                     exit(-1)
                 elif arg_type == Type.FLOAT and args[i] == Type.INT:
                     err("WARNING: possible loss of information converting float expression to int expression in parameter " + str(i) + " of function '" + name + "' in line " + str(token.line) + " and column " + str(token.column) + "\n")
+
+                if(arg_type == Type.INT):
+                    if(i > 0):
+                        self.out.write(', i32 %' + str(arg_ir_register))
+                    else:
+                        self.out.write('i32 %' + str(arg_ir_register))
+                if(arg_type == Type.FLOAT):
+                    if(i > 0):
+                        self.out.write(', float %' + str(arg_ir_register))
+                    else:
+                        self.out.write('float %' + str(arg_ir_register))
+                #if(arg_type == Type.VOID):
+                #    self.out.write('void ')
+        self.out.write(')\n')
         return tyype, cte_value, ir_register
 
 
