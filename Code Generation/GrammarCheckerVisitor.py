@@ -173,7 +173,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                         self.out.write('\t')
                         self.out.write('%' + name + ' = ' + 'alloca float, align 4\n')
                         self.out.write('\t')
-                        self.out.write('store float ' + str(cte_value) + ', float* %' + name + ', align 4\n')
+                        self.out.write('store float ' + str(float_to_hex(cte_value)) + ', float* %' + name + ', align 4\n')
                     #if(tyype == Type.VOID):
                         #    self.out.write('void ')
                 else:
@@ -294,7 +294,7 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
 
 
     # Visit a parse tree produced by GrammarParser#expression.
-    def visitExpression(self, ctx:GrammarParser.ExpressionContext):
+    def visitExpression(self, ctx:GrammarParser.ExpressionContext, ir_parent = None):
         tyype = Type.VOID
         cte_value = None
         ir_register = None
@@ -343,11 +343,11 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                             self.out.write('\t%' + str(self.next_ir_register) + ' = load float, float* %' + name + ', align 4\n')
 
                             #elif tyype == Type.sTRING:
+                        self.next_ir_register = self.next_ir_register + 1
+                        loaded = True
 
                     # print(name)
                     # print(cte_value)
-                    self.next_ir_register = self.next_ir_register + 1
-                    loaded = True
                 self.ids_defined[name] = tyype, _, cte_value, ir_register, loaded
 
             elif ctx.array() != None:
@@ -398,12 +398,12 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                 exit(-1)
 
             if text == '*' or text == '/' or text == '+' or text == '-':
-                if left_type == Type.FLOAT or right_type == Type.FLOAT:
-                    tyype = Type.FLOAT
-                else:
-                    tyype = Type.INT
 
                 if left_cte_value != None and right_cte_value != None:
+                    if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                        tyype = Type.FLOAT
+                    else:
+                        tyype = Type.INT
                     if text == '*':
                         cte_value = left_cte_value * right_cte_value
                     elif text == '/':
@@ -412,7 +412,151 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
                         cte_value = left_cte_value + right_cte_value
                     elif text == '-':
                         cte_value = left_cte_value - right_cte_value
+
+                elif left_cte_value == None and right_cte_value != None:
+                    if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                        tyype = Type.FLOAT
+                    else:
+                        tyype = Type.INT
+                    if text == '*':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if right_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fmul float %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fmul float %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                        else:
+                            if right_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = mul i32 %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = mul i32 %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                    elif text == '/':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if right_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fdiv float %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fdiv float %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                        else:
+                            if right_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sdiv i32 %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sdiv i32 %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                    elif text == '+':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if right_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fadd float %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fadd float %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                        else:
+                            if right_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = add i32 %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = add i32 %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                    elif text == '-':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fsub float %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fsub float %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                        else:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sub i32 %' + str(left_ir_register) + ', ' + str(float_to_hex(right_cte_value)) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sub i32 %' + str(left_ir_register) + ', ' + str(right_cte_value) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                    cte_value = None
+                        
+                elif left_cte_value != None and right_cte_value == None:
+                    if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                        tyype = Type.FLOAT
+                    else:
+                        tyype = Type.INT
+                    if text == '*':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fmul i32 %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fmul float %' + str(left_cte_value) + ', %' + str(right_ir_register) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                        else:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = mul i32 %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = mul float %' + str(left_cte_value) + ', %' + str(right_ir_register) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                    elif text == '/':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fdiv float %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fdiv float %' + str(left_cte_value) + ', %' + str(right_ir_register) + '\n')
+                        else:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sdiv i32 %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sdiv i32 %' + str(left_cte_value) + ', %' + str(right_ir_register) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                    elif text == '+':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fadd float %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fadd float %' + str(left_cte_value) + ', %' + str(right_ir_register) + '\n')
+                        else:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = add i32 %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = add i32 %' + str(left_cte_value) + ', %' + str(right_ir_register) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1    
+                    elif text == '-':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fsub float %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = fsub float %' + str(left_cte_value) + ', %' + str(right_ir_register) + '\n')
+                        else:
+                            if left_type == Type.FLOAT:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sub i32 %' + str(float_to_hex(left_cte_value)) + ', %' + str(right_ir_register) + '\n')
+                            else:
+                                self.out.write('\t%' + str(self.next_ir_register) + ' = sub i32 %' + str(left_cte_value) + ', ' + str(right_ir_register) + '\n')
+                            self.next_ir_register = self.next_ir_register + 1
+                    cte_value = None
+                        
                 else:
+                    if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                        tyype = Type.FLOAT
+                    else:
+                        tyype = Type.INT
+                    if text == '*':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = fmul float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        else:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = mul float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        self.next_ir_register = self.next_ir_register + 1
+                    elif text == '/':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = fdiv float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        else:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = sdiv float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        self.next_ir_register = self.next_ir_register + 1
+                    elif text == '+':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = fadd float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        else:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = add float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        self.next_ir_register = self.next_ir_register + 1     
+                    elif text == '-':
+                        if left_type == Type.FLOAT or right_type == Type.FLOAT:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = fsub float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        else:
+                            self.out.write('\t%' + str(self.next_ir_register) + ' = fsub float %' + str(left_ir_register) + ', %' + str(right_ir_register) + '\n')
+                        self.next_ir_register = self.next_ir_register + 1
                     cte_value = None
             else:
                 tyype = Type.INT
@@ -490,11 +634,11 @@ class GrammarCheckerVisitor(ParseTreeVisitor):
             exit(-1)
         
         if(tyype == Type.INT):
-            self.out.write('\tcall i32 ' + '@' + name + ' (')
+            self.out.write('\tcall i32 ' + '@' + name + '(')
         if(tyype == Type.FLOAT):
-            self.out.write('\tcall float ' + '@' + name + ' (')
+            self.out.write('\tcall float ' + '@' + name + '(')
         if(tyype == Type.VOID):
-            self.out.write('\tcall void ' + '@' + name + ' (')
+            self.out.write('\tcall void ' + '@' + name + '(')
 
         for i in range(len(ctx.expression())):
             arg_type, arg_cte_value, arg_ir_register = self.visit(ctx.expression(i))
